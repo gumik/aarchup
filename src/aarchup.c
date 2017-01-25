@@ -259,6 +259,18 @@ int print_version()
     exit(0);
 }
 
+GMainLoop *loop;
+void update_callback(NotifyNotification *notification, char *action, gpointer user_data)
+{
+    printf("update_callback\n");
+    system("xfce4-terminal --command='bash -c \"sudo -E pacmatic -Syu; read -n 1 -s -p \\\"Press any key to continue\\\"\"'");
+}
+
+void close_callback(NotifyNotification *notification, gpointer user_data)
+{
+    printf("close_callback\n");
+    g_main_loop_quit(loop);
+}
 
 int main(int argc, char **argv)
 {
@@ -608,6 +620,8 @@ int main(int argc, char **argv)
              * loop will only run twice at max; */
             bool persist = TRUE;
             bool success;
+            loop = g_main_loop_new (NULL, FALSE);
+
             /* Loop to try again if error on showing notification. */
             do{
                 if(!my_notify){
@@ -621,6 +635,10 @@ int main(int argc, char **argv)
                 notify_notification_set_category(my_notify,category);
                 /* We set the urgency, which can be changed with a commandline option */
                 notify_notification_set_urgency (my_notify,urgency);
+
+                notify_notification_add_action (my_notify, "default", "Update", NOTIFY_ACTION_CALLBACK(update_callback), NULL, NULL);
+                g_signal_connect(my_notify, "closed", (GCallback) close_callback, NULL);
+
                 /* We finally show the notification, */	
                 success = notify_notification_show(my_notify,&error);
                 if(success && debug)
@@ -642,6 +660,12 @@ int main(int argc, char **argv)
                     }
                 }
             } while(!my_notify);
+
+            if (success) {
+                g_main_loop_run (loop);
+            }
+            g_main_loop_unref(loop);
+
             if(error){
                 g_error_free(error);
                 error = NULL;
