@@ -626,6 +626,7 @@ int main(int argc, char **argv)
             do{
                 if(!my_notify){
                     my_notify = notify_notification_new("New updates for Arch Linux available!",output_string,icon);
+                    notify_notification_add_action (my_notify, "default", "Update", NOTIFY_ACTION_CALLBACK(update_callback), NULL, NULL);
                 }
                 else
                     notify_notification_update(my_notify, "New updates for Arch Linux available!",output_string,icon);
@@ -636,7 +637,6 @@ int main(int argc, char **argv)
                 /* We set the urgency, which can be changed with a commandline option */
                 notify_notification_set_urgency (my_notify,urgency);
 
-                notify_notification_add_action (my_notify, "default", "Update", NOTIFY_ACTION_CALLBACK(update_callback), NULL, NULL);
                 g_signal_connect(my_notify, "closed", (GCallback) close_callback, NULL);
 
                 /* We finally show the notification, */	
