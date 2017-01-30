@@ -243,6 +243,8 @@ int print_help(char *name)
     printf("                                      The value for this option should be in minutes.\n");
     printf("          --pkg-no-ignore             If this flag is set will not use the IgnorePkg variable from pacman.conf. Without the flag will ignore those\n");
     printf("                                      packages\n");
+    printf("          --update-command value      If set, 'Update' button will be shown on notification.\n");
+    printf("                                      Specified command will be invoked after clicking on the button\n");
     printf("\nMore informations can be found in the manpage.\n");
     exit(0);
 }
@@ -260,10 +262,13 @@ int print_version()
 }
 
 GMainLoop *loop;
+/* Command to trigger when press 'Update' button on notification. */
+char *update_command = NULL;
+
 void update_callback(NotifyNotification *notification, char *action, gpointer user_data)
 {
     printf("update_callback\n");
-    system("xfce4-terminal --command='bash -c \"sudo -E pacmatic -Syu; read -n 1 -s -p \\\"Press any key to continue\\\"\"'");
+    system(update_command);
 }
 
 void close_callback(NotifyNotification *notification, gpointer user_data)
@@ -380,6 +385,7 @@ int main(int argc, char **argv)
             {"ftimeout", required_argument, 0, 'f'},
             {"debug", no_argument, 0, 'd'},
             {"pkg-no-ignore", no_argument, &ignore_pkg_flag, 0},
+            {"update-command", required_argument, 0, 'a'},
             {0, 0, 0, 0},
         };
         int option_index = 0;
@@ -492,6 +498,11 @@ int main(int argc, char **argv)
                 }
                 if(debug)
                     printf("DEBUG(info): manual_timeout: %i\n", manual_timeout/60);
+                break;
+            case 'a':
+                if(debug)
+                    printf("DEBUG(info): update_command: %s\n", update_command);
+                update_command = optarg;
                 break;
             case '?':
                 print_help(argv[0]);
@@ -626,7 +637,10 @@ int main(int argc, char **argv)
             do{
                 if(!my_notify){
                     my_notify = notify_notification_new("New updates for Arch Linux available!",output_string,icon);
-                    notify_notification_add_action (my_notify, "default", "Update", NOTIFY_ACTION_CALLBACK(update_callback), NULL, NULL);
+                    if (update_command != NULL) {
+                        notify_notification_add_action (my_notify, "default", "Update", NOTIFY_ACTION_CALLBACK(update_callback), NULL, NULL);
+                        g_signal_connect(my_notify, "closed", (GCallback) close_callback, NULL);
+                    }
                 }
                 else
                     notify_notification_update(my_notify, "New updates for Arch Linux available!",output_string,icon);
@@ -637,7 +651,6 @@ int main(int argc, char **argv)
                 /* We set the urgency, which can be changed with a commandline option */
                 notify_notification_set_urgency (my_notify,urgency);
 
-                g_signal_connect(my_notify, "closed", (GCallback) close_callback, NULL);
 
                 /* We finally show the notification, */	
                 success = notify_notification_show(my_notify,&error);
@@ -661,7 +674,7 @@ int main(int argc, char **argv)
                 }
             } while(!my_notify);
 
-            if (success) {
+            if (success && update_command != NULL) {
                 g_main_loop_run (loop);
             }
             g_main_loop_unref(loop);
